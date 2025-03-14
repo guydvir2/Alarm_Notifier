@@ -1,0 +1,4 @@
+{
+    "output_pins":[0,4,4,4,5],
+    "sub_Topics":["DvirHome/alarmMonitor/Avail","DvirHome/alarmMonitor/State"]
+}

@@ -20,12 +20,12 @@ AlarmState_Code current_alarm_state_code = DISARMED;
 AlarmState_Code previous_alarm_state_code = DISARMED;
 
 bool alarm_avail = false;
-uint8_t led_pins[] = {D1, D2, D2, D2, D3}; // ARMED_HOME, ARMED_AWAY, and PNDING share the same LED
+uint8_t led_pins[] = {5, 4, 4, 4, 14}; // ARMED_HOME, ARMED_AWAY, and PNDING share the same LED
 
 unsigned long lastBlinkTime = 0;
 
 char alarm_topics[2][50];
-const char *param_filenames[] = {"iot_params.JSON", "iot_topics.JSON", "app_params.JSON"};
+const char *param_filenames[] = {"/iot_params.JSON", "/iot_topics.JSON", "/app_params.JSON"};
 
 constexpr const char *alarm_avail_states[] = {"online", "offline"};
 constexpr const char *alarm_states[] = {"disarmed", "armed_home", "armed_away", "pending", "triggered"};
@@ -41,7 +41,7 @@ void extMQTT(char *incoming_msg, char *_topic)
             alarm_states[current_alarm_state_code], alarm_avail ? alarm_avail_states[0] : alarm_avail_states[1]);
     iot.pub_msg(msg);
   }
-  if (strcmp(_topic, alarm_topics[0]) == 0)
+  if (strcmp(_topic, alarm_topics[0]) == 0) // Avail
   {
     if (strcmp(incoming_msg, alarm_avail_states[0]) == 0)
     {
@@ -52,7 +52,7 @@ void extMQTT(char *incoming_msg, char *_topic)
       alarm_avail = false;
     }
   }
-  if (strcmp(_topic, alarm_topics[1]) == 0)
+  if (strcmp(_topic, alarm_topics[1]) == 0) // State
   {
     uint8_t i = 0;
     for (const char *state : alarm_states)
@@ -60,8 +60,7 @@ void extMQTT(char *incoming_msg, char *_topic)
       if (strcmp(incoming_msg, state) == 0)
       {
         current_alarm_state_code = AlarmState_Code(i);
-        // create_log_emtry(state);
-        sprintf(msg, "[Alarm Monitor]: %s", state);
+        sprintf(msg, "[Alarm Monitor][State]: [%s][%d]", state, current_alarm_state_code);
         Serial.println(msg);
       }
       i++;
@@ -115,11 +114,6 @@ void start_iot2()
 
   if (iot.readJson_inFlash(DOC, param_filenames[2]))
   {
-    for (uint8_t i = 0; i < DOC["output_pins"].size(); i++)
-    {
-      led_pins[i] = DOC["output_pins"][i].as<uint8_t>();
-    }
-
     for (uint8_t i = 0; i < DOC["sub_Topics"].size(); i++)
     {
       iot.add_subTopic(DOC["sub_Topics"][i].as<const char *>());
@@ -133,16 +127,23 @@ void start_iot2()
 // ~~~~~~~~~~~~ led output ~~~~~~~~~~~~
 void init_output()
 {
-  for (uint8_t pin : led_pins)
+  StaticJsonDocument<800> DOC;
+#if defined(ESP8266)
+  const char *pins = "output_pins";
+#elif defined(ESP32)
+  const char *pins = "output_pins2";
+#endif
+
+  if (iot.readJson_inFlash(DOC, param_filenames[2]))
   {
-    pinMode(pin, OUTPUT);
+    for (uint8_t i = 0; i < DOC[pins].size(); i++)
+    {
+      led_pins[i] = DOC[pins][i].as<uint8_t>();
+      pinMode(led_pins[i], OUTPUT);
+    }
   }
 }
-void test_print(const char *msg)
-{
-  Serial.print(iot.now());
-  Serial.println(msg);
-}
+
 void turn_leds_off()
 {
   for (uint8_t pin : led_pins)

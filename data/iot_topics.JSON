@@ -5,11 +5,11 @@
         "DvirHome/debug"
     ],
     "subTopic": [
-        "DvirHome/device1",
+        "DvirHome/AlarmMon",
         "DvirHome/All"
     ],
     "pubTopic": [
-        "DvirHome/device1/Avail",
-        "DvirHome/device1/State"
+        "DvirHome/AlarmMon/Avail",
+        "DvirHome/AlarmMon/State"
     ]
 }

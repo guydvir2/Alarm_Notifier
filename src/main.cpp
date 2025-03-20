@@ -20,14 +20,12 @@ AlarmState_Code current_alarm_state_code = DISARMED;
 AlarmState_Code previous_alarm_state_code = DISARMED;
 
 bool alarm_avail = false;
+unsigned long lastBlinkTime = 0;
 uint8_t led_pins[] = {5, 4, 4, 4, 14}; // ARMED_HOME, ARMED_AWAY, and PNDING share the same LED
 
-unsigned long lastBlinkTime = 0;
-
 char alarm_topics[2][50];
-const char *param_filenames[] = {"/iot_params.JSON", "/iot_topics.JSON", "/app_params.JSON"};
-
 constexpr const char *alarm_avail_states[] = {"online", "offline"};
+constexpr const char *param_filenames[] = {"/iot_params.JSON", "/iot_topics.JSON", "/app_params.JSON"};
 constexpr const char *alarm_states[] = {"disarmed", "armed_home", "armed_away", "pending", "triggered"};
 
 // ~~~~~~~~~~~~ iot2 ~~~~~~~~~~~~
@@ -41,7 +39,7 @@ void extMQTT(char *incoming_msg, char *_topic)
             alarm_states[current_alarm_state_code], alarm_avail ? alarm_avail_states[0] : alarm_avail_states[1]);
     iot.pub_msg(msg);
   }
-  if (strcmp(_topic, alarm_topics[0]) == 0) // Avail
+  else if (strcmp(_topic, alarm_topics[0]) == 0) // Avail
   {
     if (strcmp(incoming_msg, alarm_avail_states[0]) == 0)
     {
@@ -52,7 +50,7 @@ void extMQTT(char *incoming_msg, char *_topic)
       alarm_avail = false;
     }
   }
-  if (strcmp(_topic, alarm_topics[1]) == 0) // State
+  else if (strcmp(_topic, alarm_topics[1]) == 0) // State
   {
     uint8_t i = 0;
     for (const char *state : alarm_states)
@@ -60,11 +58,15 @@ void extMQTT(char *incoming_msg, char *_topic)
       if (strcmp(incoming_msg, state) == 0)
       {
         current_alarm_state_code = AlarmState_Code(i);
-        sprintf(msg, "[Alarm Monitor][State]: [%s][%d]", state, current_alarm_state_code);
-        Serial.println(msg);
+        sprintf(msg, "[Alarm Monitor][State]: [%s]", state);
+        iot.pub_msg(msg);
       }
       i++;
     }
+  }
+  else
+  {
+    Serial.println("Unknown MSG");
   }
 }
 void set_hardcoded_topics()
@@ -100,8 +102,8 @@ void start_iot2()
 {
   StaticJsonDocument<600> DOC;
 
-  iot.set_pFilenames(param_filenames, sizeof(param_filenames) / sizeof(param_filenames[0])); // set the filenames for the parameters
-  iot.readFlashParameters(DOC, param_filenames[0]);                                          // iot2 Parameters. in case of failure, default values will be used
+  iot.set_pFilenames((const char **)param_filenames, sizeof(param_filenames) / sizeof(param_filenames[0])); // set the filenames for the parameters
+  iot.readFlashParameters(DOC, param_filenames[0]);                                                         // iot2 Parameters. in case of failure, default values will be used
 
   if (iot.readJson_inFlash(DOC, param_filenames[1])) // Topics. read topics from flash or use hardcoded topics
   {
@@ -143,7 +145,6 @@ void init_output()
     }
   }
 }
-
 void turn_leds_off()
 {
   for (uint8_t pin : led_pins)
